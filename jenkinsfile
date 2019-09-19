@@ -1,0 +1,27 @@
+def withSecretEnv(List<Map> varAndPasswordList, Closure closure) {
+  wrap([$class: 'MaskPasswordsBuildWrapper', varPasswordPairs: varAndPasswordList]) {
+    withEnv(varAndPasswordList.collect { "${it.var}=${it.password}" }) {
+      closure()
+    }
+  }
+}
+
+pipeline {
+	agent { label 'master' }
+	stages {
+		stage('use mask-password mask string') {
+			withCredentials([usernamePassword(credentialsId: "credentialsId", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+				GIT_PASSWORD = URLEncoder.encode("${GIT_PASSWORD}", "UTF-8")
+				withSecretEnv([[var: 'ENCODER_PASSWORD', password: "${GIT_PASSWORD}"]]) {
+					sh """
+						touch aa.txt
+            git init
+            git add --all
+            git commit -m "password is hide"
+            git push http://${GIT_USERNAME}:${ENCODER_PASSWORD}@xxx.git master
+          """
+				}
+			}
+		}
+	}
+}
